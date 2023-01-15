@@ -26,35 +26,23 @@
 int m_iOffset = -1;
 int m_iLevel[MAXPLAYERS+1];
 
-Handle hShowFlagCookie;
-
 char m_cFilePath[PLATFORM_MAX_PATH];
 char serverIp[16];
 
 KeyValues kv;
 
-bool g_bCustomLevels;
-bool g_hShowflag[MAXPLAYERS + 1] = {true, ...};
-
 ConVar net_public_adr = null;
 
-#define DATA "1.4"
+#define DATA "1.5"
 
 public Plugin myinfo =
 {
-	name = "SM Franug Country Flag Icons",
-	author = "Franc1sco franug",
+	name = "SM Franug Country Flag Icons - modified",
+	author = "Franc1sco franug / imi-tat0r",
 	description = "",
 	version = DATA,
 	url = "http://steamcommunity.com/id/franug"
 };
-
-public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
-{
-	MarkNativeAsOptional("SCL_GetLevel");
-
-	return APLRes_Success;
-}
 
 public void OnPluginStart()
 {
@@ -63,32 +51,13 @@ public void OnPluginStart()
 	m_iOffset = FindSendPropInfo("CCSPlayerResource", "m_nPersonaDataPublicLevel");
 	BuildPath(Path_SM, m_cFilePath, sizeof(m_cFilePath), "configs/franug_countryflags.cfg");
 
-	RegConsoleCmd("sm_showflag", Cmd_Showflag, "This allows players to hide their flag");
-	hShowFlagCookie = RegClientCookie("Flags-Icons_No_Flags_Cookie", "Show or hide the flag.", CookieAccess_Private);
-
 	for(int i = 1; i <= MaxClients; i++)
-	{
 		m_iLevel[i] = -1;
-	}
-
-	g_bCustomLevels = LibraryExists("ScoreboardCustomLevels");
 }
 
 public void OnConfigsExecuted()
 {
 	net_public_adr.GetString(serverIp, sizeof(serverIp));
-}
-
-public void OnLibraryAdded(const char[] name)
-{
-	if(StrEqual(name, "ScoreboardCustomLevels"))
-		g_bCustomLevels = true;
-}
-
-public void OnLibraryRemoved(const char[] name)
-{
-	if(StrEqual(name, "ScoreboardCustomLevels"))
-		g_bCustomLevels = false;
 }
 
 public OnClientPostAdminCheck(client)
@@ -101,7 +70,7 @@ public OnClientPostAdminCheck(client)
 	char ip[16];
 	char code2[3];
 
-	if (!GetClientIP(client, ip, sizeof(ip)) || !IsLocalAddress(ip) && !GeoipCode2(ip, code2) || !g_hShowflag[client])
+	if (!GetClientIP(client, ip, sizeof(ip)) || !IsLocalAddress(ip) && !GeoipCode2(ip, code2))
 	{
 		if(KvJumpToKey(kv, "UNKNOW"))
 		{
@@ -138,35 +107,6 @@ public void OnClientDisconnect(int client)
 	m_iLevel[client] = -1;
 }
 
-public Action Cmd_Showflag(int client, int args)
-{
-	if (AreClientCookiesCached(client))
-	{
-		char sCookieValue[12];
-		GetClientCookie(client, hShowFlagCookie, sCookieValue, sizeof(sCookieValue));
-		int cookieValue = StringToInt(sCookieValue);
-		if (cookieValue == 1)
-		{
-			cookieValue = 0;
-			g_hShowflag[client] = true;
-			IntToString(cookieValue, sCookieValue, sizeof(sCookieValue));
-			SetClientCookie(client, hShowFlagCookie, sCookieValue);
-			OnClientPostAdminCheck(client);
-			ReplyToCommand(client, "[SM] Your flag is now visible");
-		}
-		else
-		{
-			cookieValue = 1;
-			g_hShowflag[client] = false;
-			IntToString(cookieValue, sCookieValue, sizeof(sCookieValue));
-			SetClientCookie(client, hShowFlagCookie, sCookieValue);
-			OnClientPostAdminCheck(client);
-			ReplyToCommand(client, "[SM] Your flag is no longer visible");
-		}
-	}
-	return Plugin_Handled;
-}
-
 public void OnMapStart()
 {
 	char sBuffer[PLATFORM_MAX_PATH];
@@ -190,40 +130,15 @@ public void OnMapStart()
 	KvRewind(kv);
 }
 
-public void OnClientCookiesCached(int client)
-{
-	char sCookieValue[12];
-	GetClientCookie(client, hShowFlagCookie, sCookieValue, sizeof(sCookieValue));
-	if (StrEqual(sCookieValue, ""))
-	{
-		sCookieValue = "1"
-		SetClientCookie(client, hShowFlagCookie, sCookieValue);
-	}
-	int cookieValue = StringToInt(sCookieValue);
-	if (cookieValue == 0)
-	{
-		g_hShowflag[client] = true;
-		OnClientPostAdminCheck(client);
-	}
-	return;
-}
-
 public void OnThinkPost(int m_iEntity)
 {
-	int m_iLevelTemp[MAXPLAYERS+1] = 0;
+	int m_iLevelTemp[MAXPLAYERS+1] = { 0, ... };
 	GetEntDataArray(m_iEntity, m_iOffset, m_iLevelTemp, MAXPLAYERS+1);
 
 	for(int i = 1; i <= MaxClients; i++)
 	{
-		if(m_iLevel[i] != -1)
-		{
-			if(m_iLevel[i] != m_iLevelTemp[i])
-			{
-				if (g_bCustomLevels && SCL_GetLevel(i) > 0)continue; // dont overwritte other custom level
-
-				SetEntData(m_iEntity, m_iOffset + (i * 4), m_iLevel[i]);
-			}
-		}
+		if(m_iLevel[i] != -1 && m_iLevel[i] != m_iLevelTemp[i])
+			SetEntData(m_iEntity, m_iOffset + (i * 4), m_iLevel[i]);
 	}
 }
 
